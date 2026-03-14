@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Presence — Pedestrian Safety App</title>
+<style>
+:root {
+  --primary:#00897B; --primary-dark:#26A69A; --primary-container:#B2DFDB;
+  --on-primary:#fff; --on-primary-container:#00352F;
+  --secondary:#546E7A; --tertiary:#5C6BC0; --tertiary-container:#E8EAF6;
+  --surface:#fff; --bg:#F5F7F6; --surface-container:#EAF0EE;
+  --surface-container-high:#E0EDEA;
+  --on-surface:#191C1B; --on-surface-variant:#3F4946; --on-surface-dim:#6B7775;
+  --outline:#6F7975; --outline-variant:#BEC9C5;
+  --safe:#2E7D32; --safe-light:#66BB6A; --safe-surface:#E8F5E9;
+  --caution:#F57F17; --caution-surface:#FFF8E1;
+  --danger:#C62828; --danger-surface:#FFEBEE;
+  --alert:#E64A19; --alert-surface:#FBE9E7;
+  --sos:#D32F2F; --sos-dark:#B71C1C;
+  --map-police:#1565C0;
+  --r-xl:24px; --r-lg:20px; --r-md:16px; --r-sm:12px; --r-xs:8px;
+  --sh-sm:0 2px 8px rgba(0,0,0,.07); --sh-md:0 4px 16px rgba(0,0,0,.10); --sh-lg:0 8px 32px rgba(0,0,0,.14);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0E1412;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,'Inter','Segoe UI',sans-serif;color:var(--on-surface);user-select:none;}
+
+/* ── Shell ── */
+.shell{width:375px;height:812px;background:var(--bg);border-radius:44px;overflow:hidden;
+  box-shadow:0 0 0 10px #1a2220,0 32px 80px rgba(0,0,0,.7);
+  display:flex;flex-direction:column;position:relative;}
+.shell::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:120px;height:32px;background:#1a2220;border-radius:0 0 22px 22px;z-index:200;}
+
+/* Status bar */
+.status-bar{height:48px;display:flex;align-items:flex-end;justify-content:space-between;
+  padding:0 24px 8px;font-size:12px;font-weight:600;position:relative;z-index:10;flex-shrink:0;}
+.status-bar.dark{color:#fff;} .status-bar.light{color:var(--on-surface);}
+.status-icons{display:flex;gap:6px;align-items:center;}
+
+/* Screen slots */
+.screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+.screen-scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+.screen-scroll::-webkit-scrollbar{display:none;}
+
+/* ── Transitions ── */
+.slide-in-right{animation:slideInRight .28s cubic-bezier(.25,.46,.45,.94) both;}
+.slide-in-left {animation:slideInLeft  .28s cubic-bezier(.25,.46,.45,.94) both;}
+.slide-out-left {animation:slideOutLeft  .28s cubic-bezier(.25,.46,.45,.94) both;}
+.fade-in{animation:fadeIn .22s ease both;}
+@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes slideInLeft {from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@keyframes slideOutLeft{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Bottom Nav ── */
+.bottom-nav{background:var(--surface);border-top:1px solid var(--outline-variant);
+  display:flex;padding:8px 4px 10px;flex-shrink:0;position:relative;z-index:50;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:4px 2px;font-size:10px;font-weight:600;color:var(--on-surface-dim);cursor:pointer;
+  transition:color .2s;}
+.nav-item.active{color:var(--primary);}
+.nav-pill{width:56px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;transition:background .2s;}
+.nav-item.active .nav-pill{background:var(--primary-container);}
+.nav-item svg{width:20px;height:20px;fill:currentColor;}
+
+/* ── Buttons ── */
+.btn{width:100%;padding:16px;border-radius:14px;border:none;cursor:pointer;
+  font-size:15px;font-weight:700;font-family:inherit;transition:opacity .15s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn:active{transform:scale(.97);}
+.btn-filled{background:var(--primary);color:#fff;}
+.btn-outlined{background:transparent;border:1.5px solid var(--primary);color:var(--primary);}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn svg{width:18px;height:18px;fill:currentColor;flex-shrink:0;}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--outline-variant);border-radius:var(--r-lg);overflow:hidden;}
+
+/* ── Chips ── */
+.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;
+  font-size:11px;font-weight:600;background:var(--surface-container);color:var(--on-surface-variant);}
+.chip.active{background:var(--primary-container);color:var(--primary);border:1.5px solid var(--primary);}
+
+/* ── Safe badge ── */
+.safe-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;
+  background:var(--safe-surface);border:1.5px solid rgba(46,125,50,.3);color:var(--safe);font-size:12px;font-weight:700;}
+.caution-badge{background:var(--caution-surface);border-color:rgba(245,127,23,.3);color:var(--caution);}
+.danger-badge{background:var(--danger-surface);border-color:rgba(198,40,40,.3);color:var(--danger);}
+
+/* ────────────────────────────────────────────
+   ONBOARDING
+──────────────────────────────────────────── */
+.ob-screen{flex:1;display:flex;flex-direction:column;align-items:center;
+  padding:0 28px 32px;position:relative;}
+.ob-skip{align-self:flex-end;padding:10px 4px;font-size:13px;font-weight:600;
+  color:rgba(255,255,255,.6);cursor:pointer;background:none;border:none;font-family:inherit;}
+.ob-illus{width:130px;height:130px;border-radius:65px;display:flex;align-items:center;
+  justify-content:center;margin:16px auto 32px;animation:fadeIn .4s ease;}
+.ob-illus svg{width:64px;height:64px;fill:white;}
+.ob-title{font-size:30px;font-weight:800;color:#fff;text-align:center;line-height:1.15;margin-bottom:18px;}
+.ob-body{font-size:15px;color:rgba(255,255,255,.82);text-align:center;line-height:1.65;flex:1;}
+.ob-dots{display:flex;justify-content:center;gap:7px;margin:24px 0 20px;}
+.ob-dot{height:8px;border-radius:4px;background:rgba(255,255,255,.3);transition:all .3s;}
+.ob-dot.active{width:24px;background:#fff;} .ob-dot:not(.active){width:8px;}
+
+/* ────────────────────────────────────────────
+   HOME MAP
+──────────────────────────────────────────── */
+.map-bg{position:absolute;inset:0;background:#dde8e5;overflow:hidden;}
+.map-road{position:absolute;background:rgba(255,255,255,.85);}
+.map-zone{position:absolute;border-radius:50%;}
+.map-content{position:relative;z-index:2;display:flex;flex-direction:column;flex:1;pointer-events:none;}
+.map-content>*{pointer-events:all;}
+
+.home-topbar{display:flex;align-items:center;gap:8px;padding:6px 14px 10px;}
+.brand-pill{display:flex;align-items:center;gap:6px;background:var(--surface);border-radius:20px;
+  padding:7px 12px;box-shadow:var(--sh-md);font-size:13px;font-weight:700;color:var(--primary);}
+.brand-pill svg{width:16px;height:16px;fill:var(--primary);}
+.map-icon-btn{width:42px;height:42px;border-radius:50%;background:var(--surface);
+  box-shadow:var(--sh-sm);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border:none;transition:transform .15s;}
+.map-icon-btn:active{transform:scale(.92);}
+.map-icon-btn svg{width:18px;height:18px;fill:var(--on-surface-variant);}
+.map-icon-btn.active svg{fill:var(--primary);}
+
+.alert-banner{margin:0 12px 8px;padding:10px 12px;border-radius:var(--r-md);
+  display:flex;align-items:center;gap:10px;animation:slideInRight .3s ease;}
+.alert-banner.caution{background:var(--caution-surface);border:1.5px solid rgba(245,127,23,.3);}
+.alert-banner.danger{background:var(--danger-surface);border:1.5px solid rgba(198,40,40,.3);}
+.alert-banner.safe{background:var(--safe-surface);border:1.5px solid rgba(46,125,50,.3);}
+.ab-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ab-icon svg{width:16px;height:16px;}
+.alert-banner.caution .ab-icon{background:rgba(245,127,23,.15);}
+.alert-banner.caution .ab-icon svg{fill:var(--caution);}
+.alert-banner.caution .ab-text{color:var(--caution);}
+.alert-banner.caution .ab-action{color:var(--caution);}
+.alert-banner.danger .ab-icon{background:rgba(198,40,40,.15);}
+.alert-banner.danger .ab-icon svg{fill:var(--danger);}
+.alert-banner.danger .ab-text{color:var(--danger);}
+.alert-banner.danger .ab-action{color:var(--danger);}
+.alert-banner.safe .ab-icon{background:rgba(46,125,50,.15);}
+.alert-banner.safe .ab-icon svg{fill:var(--safe);}
+.alert-banner.safe .ab-text{color:var(--safe);}
+.ab-text{font-size:11.5px;font-weight:600;flex:1;}
+.ab-action{font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.ab-close{font-size:16px;color:var(--on-surface-dim);cursor:pointer;background:none;border:none;padding:0 2px;}
+
+.layer-chips-row{display:flex;gap:6px;padding:0 12px 8px;overflow-x:auto;}
+.layer-chips-row::-webkit-scrollbar{display:none;}
+.layer-chip{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;
+  font-size:10.5px;font-weight:600;white-space:nowrap;cursor:pointer;
+  background:var(--surface);box-shadow:var(--sh-sm);color:var(--on-surface-dim);
+  border:1px solid transparent;transition:all .2s;flex-shrink:0;}
+.layer-chip svg{width:12px;height:12px;fill:currentColor;}
+.layer-chip.on-green{background:rgba(46,125,50,.12);color:var(--safe);border-color:rgba(46,125,50,.35);}
+.layer-chip.on-amber{background:rgba(245,127,23,.1);color:var(--caution);border-color:rgba(245,127,23,.35);}
+.layer-chip.on-blue{background:rgba(21,101,192,.1);color:var(--map-police);border-color:rgba(21,101,192,.35);}
+.layer-chip.on-purple{background:rgba(92,107,192,.1);color:var(--tertiary);border-color:rgba(92,107,192,.35);}
+.layer-chip.on-red{background:rgba(230,74,25,.1);color:var(--alert);border-color:rgba(230,74,25,.35);}
+
+.home-bottom-panel{background:var(--surface);border-radius:24px 24px 0 0;
+  box-shadow:0 -4px 24px rgba(0,0,0,.12);padding:8px 18px 12px;}
+.drag-handle{width:32px;height:4px;border-radius:2px;background:var(--outline-variant);margin:0 auto 12px;}
+.loc-row{display:flex;align-items:center;gap:5px;margin-bottom:12px;}
+.loc-row svg{width:14px;height:14px;fill:var(--primary);}
+.loc-row span{font-size:13px;color:var(--on-surface-variant);flex:1;}
+.loc-row .time{font-size:12px;color:var(--on-surface-dim);}
+
+/* Score card */
+.score-card{border-radius:var(--r-lg);padding:14px;display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+.score-card.safe{background:var(--safe-surface);border:1.5px solid rgba(46,125,50,.25);}
+.score-card.caution{background:var(--caution-surface);border:1.5px solid rgba(245,127,23,.25);}
+.score-arc{width:64px;height:64px;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;}
+.score-arc svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);}
+.score-num{font-size:16px;font-weight:800;}
+.score-num.safe-c{color:var(--safe);}
+.score-num.caution-c{color:var(--caution);}
+.score-info h3{font-size:14px;font-weight:700;margin-bottom:2px;}
+.score-info h3.safe-c{color:var(--safe);}
+.score-info h3.caution-c{color:var(--caution);}
+.score-info p{font-size:12px;color:var(--on-surface-variant);line-height:1.4;}
+.score-feats{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.feat-chip{font-size:10px;font-weight:600;border-radius:20px;padding:2px 8px;}
+.feat-chip.safe-c{background:rgba(46,125,50,.1);color:var(--safe);}
+
+.action-row{display:flex;gap:10px;}
+.btn-icon{flex:1;padding:14px;border-radius:14px;cursor:pointer;border:1.5px solid var(--primary);
+  background:transparent;color:var(--primary);display:flex;align-items:center;justify-content:center;transition:transform .1s;}
+.btn-icon:active{transform:scale(.93);}
+.btn-icon svg{width:20px;height:20px;fill:var(--primary);}
+.btn-icon.active{background:var(--primary-container);}
+
+/* SOS */
+.sos-fab{position:absolute;right:16px;width:62px;height:62px;border-radius:31px;
+  background:linear-gradient(135deg,var(--sos-dark),var(--sos));
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 4px 18px rgba(211,47,47,.45);animation:sosPulse 1.8s ease-in-out infinite;
+  border:none;z-index:60;transition:transform .15s;}
+.sos-fab:active{transform:scale(.93);}
+.sos-fab svg{width:28px;height:28px;fill:white;}
+@keyframes sosPulse{0%,100%{box-shadow:0 0 0 0 rgba(211,47,47,.4),0 4px 18px rgba(211,47,47,.45);}
+  50%{box-shadow:0 0 0 14px rgba(211,47,47,0),0 4px 18px rgba(211,47,47,.45);}}
+
+/* ── Route Planner ── */
+.app-bar{padding:14px 18px 12px;background:var(--surface);border-bottom:1px solid var(--outline-variant);
+  font-size:18px;font-weight:800;flex-shrink:0;display:flex;align-items:center;gap:10px;}
+.back-btn{background:none;border:none;cursor:pointer;padding:2px;display:flex;align-items:center;}
+.back-btn svg{width:22px;height:22px;fill:var(--on-surface);}
+
+.loc-field{background:var(--surface);border:1px solid var(--outline-variant);border-radius:14px;
+  padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--sh-sm);
+  font-size:13px;color:var(--on-surface);}
+.loc-field svg{width:18px;height:18px;flex-shrink:0;}
+.loc-field input{border:none;outline:none;font-size:13px;font-family:inherit;color:var(--on-surface);background:transparent;flex:1;}
+.loc-field input::placeholder{color:var(--on-surface-dim);}
+
+.route-type-tabs{display:flex;background:var(--surface-container);border-radius:14px;
+  border:1px solid var(--outline-variant);padding:4px;gap:2px;}
+.route-tab{flex:1;padding:8px 4px;border-radius:10px;display:flex;flex-direction:column;
+  align-items:center;gap:3px;font-size:10px;font-weight:600;color:var(--on-surface-dim);
+  cursor:pointer;transition:all .2s;border:none;font-family:inherit;background:transparent;}
+.route-tab.active{background:var(--surface);color:var(--primary);box-shadow:var(--sh-sm);}
+.route-tab svg{width:18px;height:18px;fill:currentColor;}
+
+.route-card{border-radius:var(--r-lg);padding:14px;cursor:pointer;transition:all .2s;border:1px solid var(--outline-variant);background:var(--surface);}
+.route-card.selected{border:2px solid rgba(46,125,50,.5);background:var(--safe-surface);box-shadow:0 4px 16px rgba(46,125,50,.15);}
+.route-card.caution-sel.selected{border-color:rgba(245,127,23,.5);background:var(--caution-surface);box-shadow:0 4px 16px rgba(245,127,23,.15);}
+.rc-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;}
+.rc-icon{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.rc-icon.green{background:rgba(46,125,50,.12);}
+.rc-icon.amber{background:rgba(245,127,23,.12);}
+.rc-icon.blue{background:rgba(92,107,192,.12);}
+.rc-icon svg{width:20px;height:20px;}
+.rc-icon.green svg{fill:var(--safe);} .rc-icon.amber svg{fill:var(--caution);} .rc-icon.blue svg{fill:var(--tertiary);}
+.rc-meta{flex:1;}
+.rc-meta h3{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.rec-badge{font-size:9px;font-weight:700;background:var(--primary);color:#fff;border-radius:20px;padding:2px 7px;}
+.rc-meta p{font-size:11px;color:var(--on-surface-dim);margin-top:2px;}
+.score-pill{width:46px;height:46px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.score-pill.green{background:rgba(46,125,50,.12);}
+.score-pill.amber{background:rgba(245,127,23,.12);}
+.score-pill span{font-size:13px;font-weight:800;}
+.score-pill small{font-size:8px;font-weight:700;letter-spacing:.2px;}
+.score-pill.green span,.score-pill.green small{color:var(--safe);}
+.score-pill.amber span,.score-pill.amber small{color:var(--caution);}
+.rc-stats{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+.stat-pill{display:flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface-container);border-radius:20px;font-size:10px;font-weight:600;color:var(--on-surface-variant);}
+.stat-pill svg{width:10px;height:10px;fill:currentColor;}
+.rc-tags{display:flex;gap:5px;flex-wrap:wrap;}
+.tag{font-size:10px;font-weight:600;border-radius:20px;padding:2px 8px;display:flex;align-items:center;gap:4px;}
+.tag.green{color:var(--safe);background:var(--safe-surface);}
+.tag.green svg{width:10px;height:10px;fill:var(--safe);}
+.tag.warn{color:var(--caution);}
+.tag.warn svg{width:11px;height:11px;fill:var(--caution);}
+.warn-row{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:10px;color:var(--caution);}
+.warn-row svg{width:11px;height:11px;fill:var(--caution);}
+
+.start-walk-bar{padding:12px 16px;background:var(--surface);border-top:1px solid var(--outline-variant);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.swb-info .name{font-size:13px;font-weight:700;} .swb-info .sub{font-size:11px;color:var(--on-surface-dim);}
+.start-btn{padding:10px 18px;border-radius:12px;border:none;cursor:pointer;background:var(--primary);color:#fff;
+  font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;font-family:inherit;transition:transform .1s;}
+.start-btn:active{transform:scale(.95);}
+.start-btn svg{width:14px;height:14px;fill:#fff;}
+
+/* ── Safe Walk ── */
+.sw-topbar{margin:8px 12px;padding:10px 14px;background:var(--surface);border-radius:18px;
+  box-shadow:var(--sh-md);display:flex;align-items:center;gap:10px;position:relative;z-index:10;}
+.pulse-dot{width:10px;height:10px;border-radius:50%;background:var(--safe);flex-shrink:0;
+  box-shadow:0 0 0 4px rgba(46,125,50,.25);animation:pulseDot 1.6s ease-in-out infinite;}
+@keyframes pulseDot{0%,100%{box-shadow:0 0 0 4px rgba(46,125,50,.25);}50%{box-shadow:0 0 0 9px rgba(46,125,50,0);}}
+.sw-label{font-size:13px;font-weight:700;color:var(--safe);flex:1;}
+.timer{padding:4px 10px;border-radius:10px;background:var(--surface-container);
+  font-size:12px;font-weight:600;color:var(--on-surface-variant);font-family:monospace;}
+.stop-btn{width:28px;height:28px;border-radius:50%;background:var(--danger-surface);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;}
+.stop-btn svg{width:14px;height:14px;fill:var(--danger);}
+
+.sw-map{flex:1;background:#dde8e5;position:relative;min-height:100px;}
+.sw-bottom{background:var(--surface);border-radius:24px 24px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.12);padding:10px 18px 14px;flex-shrink:0;}
+.prog-row{display:flex;justify-content:space-between;margin-bottom:6px;}
+.prog-label{font-size:11px;font-weight:600;color:var(--on-surface-dim);}
+.prog-pct{font-size:11px;font-weight:700;color:var(--primary);}
+.prog-bar{height:8px;background:var(--primary-container);border-radius:4px;overflow:hidden;margin-bottom:14px;}
+.prog-fill{height:100%;border-radius:4px;background:var(--primary);transition:width .5s ease;}
+.walk-stats{display:flex;gap:8px;margin-bottom:12px;}
+.walk-stat{flex:1;padding:10px 6px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.walk-stat svg{width:18px;height:18px;} .walk-stat .wv{font-size:14px;font-weight:800;} .walk-stat .wl{font-size:10px;color:var(--on-surface-dim);font-weight:600;}
+.ws-primary{background:rgba(0,137,123,.08);}
+.ws-primary svg,.ws-primary .wv{fill:var(--primary);color:var(--primary);}
+.ws-secondary{background:rgba(84,110,122,.08);}
+.ws-secondary svg,.ws-secondary .wv{fill:#546E7A;color:#546E7A;}
+.ws-green{background:var(--safe-surface);}
+.ws-green svg,.ws-green .wv{fill:var(--safe);color:var(--safe);}
+.dest-row{padding:12px;background:var(--surface-container);border-radius:14px;display:flex;align-items:center;gap:10px;}
+.dest-row svg{width:20px;height:20px;fill:var(--primary);}
+.dest-info p{font-size:10px;color:var(--on-surface-dim);margin-bottom:1px;}
+.dest-info h3{font-size:13px;font-weight:700;}
+
+/* ── Community ── */
+.comm-header{padding:14px 18px 10px;background:var(--surface);border-bottom:1px solid var(--outline-variant);flex-shrink:0;display:flex;align-items:center;}
+.comm-header h1{font-size:22px;font-weight:800;flex:1;}
+.report-btn{padding:8px 14px;border-radius:10px;border:none;cursor:pointer;
+  background:var(--primary);color:#fff;font-size:12px;font-weight:700;
+  display:flex;align-items:center;gap:5px;font-family:inherit;}
+.report-btn svg{width:14px;height:14px;fill:#fff;}
+
+.stats-banner{margin:12px 14px 0;padding:14px;background:linear-gradient(135deg,rgba(0,137,123,.07),var(--primary-container));
+  border:1px solid rgba(0,137,123,.2);border-radius:var(--r-lg);display:flex;align-items:center;}
+.stats-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.stats-item .sv{font-size:18px;font-weight:800;}
+.stats-item .sl{font-size:10px;font-weight:600;color:var(--on-surface-dim);}
+.stats-div{width:1px;height:36px;background:var(--outline-variant);}
+
+.filter-scroll{display:flex;gap:6px;padding:10px 14px;overflow-x:auto;flex-shrink:0;}
+.filter-scroll::-webkit-scrollbar{display:none;}
+.fchip{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;
+  border:1px solid var(--outline-variant);font-size:11px;font-weight:600;
+  background:var(--surface-container);color:var(--on-surface-variant);white-space:nowrap;
+  cursor:pointer;transition:all .2s;}
+.fchip.active{background:var(--primary-container);border-color:var(--primary);color:var(--primary);}
+.fchip svg{width:12px;height:12px;fill:currentColor;}
+
+.alert-card{background:var(--surface);border:1px solid var(--outline-variant);border-radius:var(--r-lg);padding:14px;cursor:pointer;transition:box-shadow .2s;}
+.alert-card:active{box-shadow:var(--sh-md);}
+.ac-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.ac-icon{width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.ac-icon svg{width:20px;height:20px;}
+.ac-icon.high{background:var(--danger-surface);}  .ac-icon.high svg{fill:var(--danger);}
+.ac-icon.medium{background:var(--caution-surface);} .ac-icon.medium svg{fill:var(--caution);}
+.ac-icon.low{background:rgba(21,101,192,.1);}   .ac-icon.low svg{fill:var(--map-police);}
+.ac-meta{flex:1;}
+.ac-meta h3{font-size:13px;font-weight:700;margin-bottom:3px;}
+.ac-loc{font-size:11px;color:var(--on-surface-dim);display:flex;align-items:center;gap:3px;}
+.ac-loc svg{width:10px;height:10px;fill:var(--on-surface-dim);}
+.sev-badge{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;flex-shrink:0;}
+.sev-badge.high{background:var(--danger-surface);color:var(--danger);}
+.sev-badge.medium{background:var(--caution-surface);color:var(--caution);}
+.sev-badge.low{background:var(--safe-surface);color:var(--safe);}
+.ac-desc{font-size:12px;color:var(--on-surface-variant);line-height:1.4;margin-bottom:10px;}
+.ac-foot{display:flex;align-items:center;gap:8px;}
+.cat-chip{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;
+  background:var(--surface-container);color:var(--on-surface-variant);}
+.verified{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--primary);font-weight:600;}
+.verified svg{width:11px;height:11px;fill:var(--primary);}
+.upvote-btn{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:11px;
+  color:var(--on-surface-dim);cursor:pointer;background:none;border:none;font-family:inherit;padding:4px 6px;border-radius:8px;}
+.upvote-btn:active{background:var(--surface-container);}
+.upvote-btn svg{width:13px;height:13px;fill:currentColor;}
+.upvote-btn.voted{color:var(--primary);}
+.av-sm{width:24px;height:24px;border-radius:50%;background:var(--primary-container);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--primary);}
+
+/* ── Report Incident ── */
+.section-lbl{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-bottom:10px;}
+.section-lbl svg{width:16px;height:16px;fill:var(--primary);}
+.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.cat-tile{border-radius:14px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;border:1px solid var(--outline-variant);background:var(--surface-container);transition:all .2s;}
+.cat-tile.active{background:var(--primary-container);border:2px solid var(--primary);}
+.cat-tile svg{width:26px;height:26px;fill:var(--on-surface-variant);}
+.cat-tile.active svg{fill:var(--primary);}
+.cat-tile span{font-size:9px;font-weight:600;text-align:center;color:var(--on-surface-variant);line-height:1.2;}
+.cat-tile.active span{color:var(--primary);font-weight:700;}
+.sev-row{display:flex;gap:8px;}
+.sev-tile{flex:1;padding:9px 4px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
+  border:1px solid var(--outline-variant);background:var(--surface-container);transition:all .2s;font-size:10px;font-weight:600;color:var(--on-surface-dim);}
+.sev-tile .dot{width:10px;height:10px;border-radius:50%;}
+.sev-tile:nth-child(1) .dot{background:var(--safe);}
+.sev-tile:nth-child(2) .dot{background:var(--caution);}
+.sev-tile:nth-child(3) .dot{background:var(--alert);}
+.sev-tile:nth-child(4) .dot{background:var(--danger);}
+.sev-tile.active:nth-child(1){background:var(--safe-surface);border-color:var(--safe);color:var(--safe);}
+.sev-tile.active:nth-child(2){background:var(--caution-surface);border-color:var(--caution);color:var(--caution);}
+.sev-tile.active:nth-child(3){background:var(--alert-surface);border-color:var(--alert);color:var(--alert);}
+.sev-tile.active:nth-child(4){background:var(--danger-surface);border-color:var(--danger);color:var(--danger);}
+.desc-field{width:100%;padding:12px;border-radius:12px;border:1px solid var(--outline-variant);
+  font-family:inherit;font-size:13px;color:var(--on-surface);background:var(--surface);
+  resize:none;outline:none;transition:border-color .2s;}
+.desc-field:focus{border-color:var(--primary);}
+.anon-note{padding:12px;border-radius:12px;background:rgba(0,137,123,.08);
+  display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--primary);}
+.anon-note svg{width:16px;height:16px;fill:var(--primary);flex-shrink:0;margin-top:1px;}
+
+/* Success screen */
+.success-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;background:var(--bg);}
+.success-icon{width:100px;height:100px;border-radius:50%;background:var(--safe-surface);
+  display:flex;align-items:center;justify-content:center;margin-bottom:24px;animation:bounceIn .6s cubic-bezier(.25,.46,.45,.94);}
+.success-icon svg{width:52px;height:52px;fill:var(--safe);}
+@keyframes bounceIn{0%{transform:scale(0.4);opacity:0;}60%{transform:scale(1.1);}100%{transform:scale(1);opacity:1;}}
+
+/* ── Profile ── */
+.profile-hero{padding:20px 20px 24px;background:linear-gradient(175deg,#004D45,#00897B,#26A69A);}
+.ph-row{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+.ph-text p{font-size:11px;font-weight:600;color:rgba(255,255,255,.6);letter-spacing:.5px;margin-bottom:2px;}
+.ph-text h2{font-size:22px;font-weight:800;color:#fff;}
+.ph-avatar{width:56px;height:56px;border-radius:28px;margin-left:auto;background:rgba(255,255,255,.2);
+  display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;}
+.ph-stats{display:flex;}
+.ph-stat{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.ph-stat .v{font-size:18px;font-weight:800;color:#fff;}
+.ph-stat .l{font-size:10px;font-weight:600;color:rgba(255,255,255,.6);}
+.ph-div{width:1px;height:32px;background:rgba(255,255,255,.2);}
+
+.sec-card{background:var(--surface);border:1px solid var(--outline-variant);border-radius:var(--r-lg);overflow:hidden;margin-bottom:10px;}
+.sec-head{padding:12px 14px 8px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--outline-variant);}
+.sec-head svg{width:16px;height:16px;}
+.sec-head span{font-size:13px;font-weight:700;flex:1;}
+.sec-head .act{font-size:12px;font-weight:700;color:var(--primary);cursor:pointer;background:none;border:none;font-family:inherit;}
+.contact-tile{display:flex;align-items:center;gap:10px;padding:10px 14px;}
+.c-av{width:36px;height:36px;border-radius:18px;background:var(--primary-container);position:relative;
+  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--primary);}
+.c-star{position:absolute;bottom:-1px;right:-1px;width:14px;height:14px;border-radius:50%;
+  background:var(--sos);border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;}
+.c-star svg{width:8px;height:8px;fill:#fff;}
+.c-info .name{font-size:13px;font-weight:700;}
+.c-info .sub{font-size:11px;color:var(--on-surface-dim);}
+.toggle-tile{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;}
+.toggle-tile svg{width:18px;height:18px;flex-shrink:0;}
+.ti-info{flex:1;}
+.ti-info .t{font-size:13px;font-weight:500;}
+.ti-info .s{font-size:11px;color:var(--on-surface-dim);}
+.toggle{width:44px;height:26px;border-radius:13px;position:relative;transition:background .25s;flex-shrink:0;}
+.toggle.on{background:var(--primary);}
+.toggle.off{background:var(--surface-container);}
+.toggle-thumb{width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;
+  transition:left .25s;box-shadow:0 1px 4px rgba(0,0,0,.2);}
+.toggle.on .toggle-thumb{left:21px;} .toggle.off .toggle-thumb{left:3px;}
+.list-tile{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;}
+.list-tile svg{width:18px;height:18px;flex-shrink:0;fill:var(--on-surface-variant);}
+.lt-info{flex:1;}
+.lt-info .t{font-size:13px;font-weight:500;}
+.lt-info .s{font-size:11px;color:var(--on-surface-dim);}
+.lt-chev svg{width:16px;height:16px;fill:var(--on-surface-dim);}
+
+/* ── SOS Modal ── */
+.sos-modal{position:absolute;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.5);padding:24px;animation:fadeIn .2s ease;}
+.sos-card{background:var(--sos);border-radius:28px;padding:32px;width:100%;text-align:center;
+  animation:slideInRight .3s cubic-bezier(.25,.46,.45,.94);}
+.sos-icon-pulse{width:80px;height:80px;border-radius:50%;border:3px solid #fff;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 20px;
+  background:rgba(255,255,255,.12);animation:sosPulse 1.4s ease-in-out infinite;}
+.sos-icon-pulse svg{width:40px;height:40px;fill:#fff;}
+.sos-card h2{font-size:20px;font-weight:800;color:#fff;letter-spacing:1.5px;margin-bottom:8px;}
+.sos-card p{font-size:14px;color:rgba(255,255,255,.75);margin-bottom:6px;}
+.sos-cancel{margin-top:20px;padding:12px;border-radius:12px;border:1.5px solid #fff;
+  background:transparent;color:#fff;font-size:14px;font-weight:700;cursor:pointer;width:100%;font-family:inherit;}
+
+/* ── Toast ── */
+.toast{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);
+  background:var(--on-surface);color:#fff;padding:10px 18px;border-radius:20px;
+  font-size:12px;font-weight:600;white-space:nowrap;z-index:200;
+  animation:toastIn .3s ease, toastOut .3s ease 2s forwards;}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(-50%) translateY(8px)}}
+
+/* ── Loading spinner ── */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;flex:1;}
+.spinner{width:36px;height:36px;border:3px solid var(--primary-container);
+  border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="shell" id="shell">
+  <!-- status bar rendered by JS -->
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const state = {
+  screen: 'onboarding',    // current screen
+  obPage: 0,               // onboarding page index
+  selectedRoute: 0,        // 0=safest,1=fastest,2=active
+  routeTab: 0,
+  locationSharing: false,
+  layers: { routes:true, crowd:true, lighting:true, police:true, alerts:true },
+  alertDismissed: false,
+  safetyScore: 78,
+  walkProgress: 38,
+  walkTimer: null,
+  walkSeconds: 4*60+23,
+  toggles: { share:true, vibration:true, night:false, community:true, autoSOS:false },
+  communityFilter: null,
+  reportCat: null,
+  reportSev: 1,
+  reportDesc: '',
+  votes: {},
+  sosActive: false,
+};
+
+const OB_PAGES = [
+  { icon:'shield', color:'#004D45,#00897B,#26A69A', title:'Walk with\nConfidence', body:'Presence gives you real-time safety awareness so you can focus on your journey, not your anxiety.' },
+  { icon:'map',    color:'#1565C0,#1976D2,#42A5F5', title:'Smart Safety\nRoutes',   body:'Get directions that prioritise well-lit streets, high foot traffic, and nearby police stations.' },
+  { icon:'people', color:'#6A1B9A,#8E24AA,#AB47BC', title:'Community\nAlerts',     body:'See real-time reports from other walkers — harassment, poor lighting, and suspicious activity.' },
+  { icon:'sos',    color:'#B71C1C,#C62828,#EF5350', title:'One-Tap SOS',            body:'Instantly alert your emergency contacts and share your live location with a single press.' },
+  { icon:'loc',    color:'#004D45,#00897B,#26A69A', title:'Allow Location\nAccess', body:'Presence needs your location to show nearby safety data and guide you on safe routes.', perm:true },
+  { icon:'contact',color:'#1A237E,#283593,#3949AB', title:'Add Emergency\nContact', body:'Add a trusted person who will receive your SOS alerts and live location in emergencies.', contact:true },
+];
+
+const ALERTS = [
+  { id:1, cat:'harassment', sev:'high',   title:'Verbal harassment reported',     loc:'Mission St bus stop',   time:'2h ago',  desc:'Woman was verbally harassed near the bus stop. Avoid the area.',    votes:31, verified:true,  av:'A' },
+  { id:2, cat:'lighting',   sev:'medium', title:'Dark underpass on Oak Street',   loc:'Oak Street underpass',  time:'23m ago', desc:'Street lights are broken. Very dark at night.',                     votes:14, verified:true,  av:'S' },
+  { id:3, cat:'suspicious', sev:'high',   title:'Suspicious group near Park Ave', loc:'Park Avenue entrance',  time:'47m ago', desc:'Group of individuals approached multiple people near the entrance.', votes:8,  verified:false, av:'M' },
+  { id:4, cat:'street',     sev:'medium', title:'Broken sidewalk — tripping hazard', loc:'Market & 5th',      time:'5h ago',  desc:'Large cracks in pavement near the intersection.',                   votes:6,  verified:false, av:'J' },
+  { id:5, cat:'police',     sev:'low',    title:'Police presence on Union Square', loc:'Union Square',        time:'1h ago',  desc:'Increased police patrol in the area. Stay calm.',                   votes:22, verified:true,  av:'R' },
+  { id:6, cat:'lighting',   sev:'high',   title:'Entire block without lighting',  loc:'Elm Street block',     time:'12m ago', desc:'Power outage on Elm Street — the whole block is pitch black.',      votes:45, verified:true,  av:'K' },
+];
+
+const CAT_FILTERS = [
+  { id:null,        label:'All',        icon:'all' },
+  { id:'harassment',label:'Harassment', icon:'report' },
+  { id:'suspicious',label:'Suspicious', icon:'eye' },
+  { id:'lighting',  label:'Lighting',   icon:'bulb' },
+  { id:'street',    label:'Street',     icon:'warn' },
+  { id:'police',    label:'Police',     icon:'police' },
+];
+
+const ROUTES = [
+  { type:'safest',  icon:'shield', color:'green', label:'Safest Route',  via:'Via Market Street',   sub:'Well-lit, high pedestrian traffic',   score:92, sev:'green', dist:'1.8 km', dur:'22 min', light:'95%', crowd:'88%', tags:['High foot traffic','Well-lit streets','CCTV coverage'], warns:[], rec:true },
+  { type:'fastest', icon:'bolt',   color:'amber', label:'Fastest Route', via:'Via Oak Street',      sub:'Shorter path, moderate lighting',     score:61, sev:'amber', dist:'1.2 km', dur:'15 min', light:'58%', crowd:'45%', tags:['Fastest route'],             warns:['Poor lighting after 8PM','Dark underpass'], rec:false },
+  { type:'active',  icon:'people', color:'blue',  label:'Most Active',   via:'Via Union Square',    sub:'Busiest streets, lots of people',     score:85, sev:'green', dist:'2.1 km', dur:'26 min', light:'90%', crowd:'97%', tags:['Maximum crowd density','Police presence nearby'], warns:['Slightly longer path'], rec:false },
+];
+
+// ═══════════════════════════════════════════════════════
+// SVG ICONS
+// ═══════════════════════════════════════════════════════
+const ICONS = {
+  shield:  `<svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>`,
+  map:     `<svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5z"/></svg>`,
+  people:  `<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>`,
+  sos:     `<svg viewBox="0 0 24 24"><path d="M21 15.46l-5.27-.61-2.52 2.52c-2.83-1.44-5.15-3.75-6.59-6.59l2.53-2.53L8.54 3H3.03C2.45 13.18 10.82 21.55 21 20.97l.74-5.51H21z"/><path d="M16.63 11.07l-1.59.82c.31.91.48 1.92.48 2.95 0 .74-.08 1.45-.23 2.13l1.81.52c.19-.84.3-1.73.3-2.65 0-1.27-.24-2.54-.77-3.77zm-4.56-5.44c.74 0 1.45.08 2.13.23l.52-1.81C13.88 3.86 13 3.75 12.07 3.75c-1.27 0-2.54.24-3.77.77l.82 1.59c.91-.31 1.92-.48 2.95-.48z"/></svg>`,
+  loc:     `<svg viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06z"/></svg>`,
+  contact: `<svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>`,
+  bolt:    `<svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>`,
+  route:   `<svg viewBox="0 0 24 24"><path d="M21.71 11.29l-9-9a1 1 0 00-1.41 0l-9 9a1 1 0 000 1.41l9 9a1 1 0 001.41 0l9-9a1 1 0 000-1.41z"/></svg>`,
+  person:  `<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`,
+  warn:    `<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>`,
+  check:   `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`,
+  bulb:    `<svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>`,
+  police:  `<svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>`,
+  report:  `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>`,
+  eye:     `<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`,
+  all:     `<svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>`,
+  back:    `<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>`,
+  close:   `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`,
+  add:     `<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`,
+  nav:     `<svg viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>`,
+  share:   `<svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>`,
+  verified:`<svg viewBox="0 0 24 24"><path d="M23 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L12 3 8.6 1.54 6.71 4.72l-3.61.81.34 3.68L1 12l2.44 2.78-.34 3.69 3.61.82 1.89 3.18L12 21l3.4 1.46 1.89-3.18 3.61-.82-.34-3.68L23 12z"/></svg>`,
+  thumb:   `<svg viewBox="0 0 24 24"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>`,
+  star:    `<svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`,
+  tune:    `<svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>`,
+  night:   `<svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>`,
+  vibrate: `<svg viewBox="0 0 24 24"><path d="M0 15h2V9H0v6zm3 2h2V7H3v10zm19-8v6h2V9h-2zm-3 8h2V7h-2v10zM16.5 3h-9C6.67 3 6 3.67 6 4.5v15c0 .83.67 1.5 1.5 1.5h9c.83 0 1.5-.67 1.5-1.5v-15c0-.83-.67-1.5-1.5-1.5zM16 19H8V5h8v14z"/></svg>`,
+  info:    `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`,
+  history: `<svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>`,
+  delete:  `<svg viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>`,
+  policy:  `<svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>`,
+  notif:   `<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>`,
+  help:    `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>`,
+  chevron: `<svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>`,
+  wifi:    `<svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 00-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>`,
+  battery: `<svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>`,
+  privacy: `<svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>`,
+  carcrash:`<svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`,
+  more:    `<svg viewBox="0 0 24 24"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>`,
+  walk:    `<svg viewBox="0 0 24 24"><path d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/></svg>`,
+  stop:    `<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>`,
+  clock:   `<svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>`,
+};
+
+function icon(k,s=''){return `<span class="icon" style="${s}">${ICONS[k]||''}</span>`;}
+
+// ═══════════════════════════════════════════════════════
+// RENDER ENGINE
+// ═══════════════════════════════════════════════════════
+const shell = document.getElementById('shell');
+
+function render(){
+  const isDark = ['onboarding','safe-walk','profile'].includes(state.screen) && state.screen !== 'profile';
+  shell.innerHTML = statusBar(isDark) + screenHTML();
+  attachEvents();
+}
+
+function statusBar(dark){
+  const cl = dark ? 'dark' : 'light';
+  const now = new Date(); const h=String(now.getHours()).padStart(2,'0'), m=String(now.getMinutes()).padStart(2,'0');
+  return `<div class="status-bar ${cl}">
+    <span>${h}:${m}</span>
+    <div class="status-icons">${ICONS.wifi}${ICONS.battery}</div>
+  </div>`;
+}
+
+function screenHTML(){
+  switch(state.screen){
+    case 'onboarding':   return renderOnboarding();
+    case 'home':         return renderHome();
+    case 'routes':       return renderRoutes();
+    case 'safe-walk':    return renderSafeWalk();
+    case 'community':    return renderCommunity();
+    case 'report':       return renderReport();
+    case 'report-done':  return renderReportDone();
+    case 'profile':      return renderProfile();
+    default: return renderHome();
+  }
+}
+
+// ─── ONBOARDING ───────────────────────────────────────
+function renderOnboarding(){
+  const p = OB_PAGES[state.obPage];
+  const isLast = state.obPage === OB_PAGES.length - 1;
+  const dots = OB_PAGES.map((_,i)=>`<div class="ob-dot${i===state.obPage?' active':''}"></div>`).join('');
+  const cta = p.perm
+    ? `<button class="btn btn-filled" id="btn-perm">Allow Location Access</button>
+       <button class="btn" style="background:none;color:rgba(255,255,255,.6);margin-top:8px" id="btn-skip-perm">Not now</button>`
+    : p.contact
+    ? `<button class="btn btn-filled" id="btn-contact">Add Emergency Contact</button>
+       <button class="btn" style="background:none;color:rgba(255,255,255,.6);margin-top:8px" id="btn-finish">Skip for now</button>`
+    : `<button class="btn btn-filled" id="btn-ob-next">${isLast?'Get Started':'Next'}</button>`;
+
+  const obIcons = {shield:'shield',map:'map',people:'people',sos:'sos',loc:'loc',contact:'contact'};
+  const iconKey = obIcons[p.icon] || 'shield';
+
+  return `<div class="screen slide-in-right" style="background:linear-gradient(175deg,${p.color})">
+    <div class="ob-screen">
+      ${state.obPage>0?`<button class="ob-skip" id="btn-skip">Skip</button>`:`<div style="height:38px"></div>`}
+      <div class="ob-illus" style="background:rgba(255,255,255,.18)">${ICONS[iconKey]}</div>
+      <div class="ob-title">${p.title.replace('\n','<br>')}</div>
+      <div class="ob-body">${p.body}</div>
+      <div class="ob-dots">${dots}</div>
+      <div style="display:flex;flex-direction:column;gap:0;width:100%">${cta}</div>
+    </div>
+  </div>`;
+}
+
+// ─── HOME ─────────────────────────────────────────────
+function renderHome(){
+  const r = ROUTES[state.selectedRoute];
+  const score = state.safetyScore;
+  const scoreClass = score>=75?'safe':'caution';
+  const dash = Math.round(score*1.63);
+
+  // Layer visibility dots on map
+  const layers = state.layers;
+
+  const layerChips = [
+    {key:'routes', label:'Safe Routes', cls:'on-green', icon:'shield'},
+    {key:'crowd',  label:'Crowd',       cls:'on-purple',icon:'people'},
+    {key:'lighting',label:'Lighting',   cls:'on-amber', icon:'bulb'},
+    {key:'police', label:'Police',      cls:'on-blue',  icon:'police'},
+    {key:'alerts', label:'Alerts',      cls:'on-red',   icon:'report'},
+  ].map(l=>`<div class="layer-chip ${layers[l.key]?l.cls:''}" data-layer="${l.key}">${ICONS[l.icon]}${l.label}</div>`).join('');
+
+  const alertBanner = !state.alertDismissed ? `
+    <div class="alert-banner caution">
+      <div class="ab-icon">${ICONS.bulb}</div>
+      <span class="ab-text">Poorly lit area reported 200m ahead</span>
+      <span class="ab-action" id="btn-reroute">Reroute</span>
+      <button class="ab-close" id="btn-dismiss-alert">✕</button>
+    </div>` : '';
+
+  const shareActive = state.locationSharing ? 'active' : '';
+
+  return `<div class="screen" style="background:var(--bg)">
+    <!-- Map -->
+    <div class="map-bg">
+      <div class="map-road" style="width:100%;height:7px;top:42%;"></div>
+      <div class="map-road" style="width:7px;height:100%;left:38%;"></div>
+      <div class="map-road" style="width:100%;height:5px;top:65%;opacity:.55;"></div>
+      <div class="map-road" style="width:5px;height:100%;left:72%;opacity:.55;"></div>
+      ${layers.routes?`<svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" viewBox="0 0 375 400">
+        <polyline points="80,300 130,260 185,220 240,188 300,162" stroke="var(--primary)" stroke-width="5" fill="none" stroke-dasharray="12 6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`:''}
+      ${layers.alerts?`<div class="map-zone" style="width:90px;height:90px;background:rgba(198,40,40,.07);border:2px solid rgba(198,40,40,.2);top:55%;left:60%;"></div>`:''}
+      ${layers.lighting?`<div class="map-zone" style="width:75px;height:75px;background:rgba(245,127,23,.07);border:1.5px solid rgba(245,127,23,.2);top:38%;left:55%;"></div>`:''}
+      ${layers.crowd?`<div class="map-zone" style="width:100px;height:100px;background:rgba(0,137,123,.06);border:2px solid rgba(0,137,123,.15);top:20%;left:12%;"></div>`:''}
+      ${layers.police?`<div style="position:absolute;top:28%;left:14%;width:22px;height:22px;border-radius:50%;background:var(--map-police);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)">${ICONS.shield}</div>`:''}
+      <!-- User dot -->
+      <div style="position:absolute;left:calc(80/375*100% - 8px);top:calc(300/500*100% - 8px);width:16px;height:16px;border-radius:50%;background:var(--primary);border:3px solid #fff;box-shadow:0 0 0 6px rgba(0,137,123,.25);z-index:5"></div>
+    </div>
+
+    <div class="map-content">
+      <!-- Top bar -->
+      <div class="home-topbar">
+        <div class="brand-pill">${ICONS.shield} presence</div>
+        <div class="safe-badge ${score<75?'caution-badge':''}" style="margin-left:8px">${ICONS.shield} ${score>=75?'Safe':'Caution'} · ${score}</div>
+        <button class="map-icon-btn ${shareActive}" id="btn-share-loc" style="margin-left:auto" title="Share location">${ICONS.share}</button>
+        <button class="map-icon-btn" id="btn-layers" title="Map layers">${ICONS.map}</button>
+      </div>
+
+      ${alertBanner}
+
+      <!-- Layer chips -->
+      <div class="layer-chips-row">${layerChips}</div>
+
+      <!-- SOS -->
+      <button class="sos-fab" id="btn-sos" style="bottom:275px" title="SOS">${ICONS.sos}</button>
+
+      <!-- Bottom panel -->
+      <div class="home-bottom-panel" style="margin-top:auto">
+        <div class="drag-handle"></div>
+        <div class="loc-row">
+          ${ICONS.loc}<span>Downtown San Francisco</span>
+          <span class="time">${new Date().getHours().toString().padStart(2,'0')}:${new Date().getMinutes().toString().padStart(2,'0')}</span>
+        </div>
+        <div class="score-card ${scoreClass}">
+          <div class="score-arc">
+            <svg viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="26" fill="none" stroke="${score>=75?'rgba(46,125,50,.15)':'rgba(245,127,23,.15)'}" stroke-width="6"/>
+              <circle cx="32" cy="32" r="26" fill="none" stroke="${score>=75?'var(--safe)':'var(--caution)'}" stroke-width="6"
+                stroke-dasharray="${dash} 163" stroke-linecap="round"/>
+            </svg>
+            <div style="text-align:center">
+              <div class="score-num ${scoreClass}-c">${score}</div>
+              <div style="font-size:9px;font-weight:600;color:${score>=75?'rgba(46,125,50,.7)':'rgba(245,127,23,.7)'}">/100</div>
+            </div>
+          </div>
+          <div class="score-info">
+            <h3 class="${scoreClass}-c">${score>=75?'Mostly Safe':'Moderate'}</h3>
+            <p>Foot traffic is high. Stay aware of surroundings.</p>
+            <div class="score-feats">
+              <span class="feat-chip safe-c">CCTV</span>
+              <span class="feat-chip safe-c">Police Patrol</span>
+              <span class="feat-chip safe-c">Well-lit</span>
+            </div>
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-filled" id="btn-plan-route" style="flex:3;padding:14px;border-radius:14px">${ICONS.route} Plan Safe Route</button>
+          <button class="btn-icon ${state.locationSharing?'active':''}" id="btn-share-loc2" title="Share location">${ICONS.share}</button>
+        </div>
+      </div>
+    </div>
+    ${bottomNav('home')}
+  </div>`;
+}
+
+// ─── ROUTES ───────────────────────────────────────────
+function renderRoutes(){
+  const tabs = ['Safest','Fastest','Active'].map((t,i)=>`
+    <button class="route-tab${state.routeTab===i?' active':''}" data-tab="${i}">
+      ${ICONS[['shield','bolt','people'][i]]}${t}
+    </button>`).join('');
+
+  const cards = ROUTES.map((r,i)=>`
+    <div class="route-card${state.selectedRoute===i?' selected':''} ${r.sev==='amber'?'caution-sel':''}" data-route="${i}">
+      <div class="rc-header">
+        <div class="rc-icon ${r.color}">${ICONS[r.icon]}</div>
+        <div class="rc-meta">
+          <h3>${r.label} ${r.rec?`<span class="rec-badge">Recommended</span>`:''}</h3>
+          <p>${r.via} — ${r.sub}</p>
+        </div>
+        <div class="score-pill ${r.sev}"><span>${r.score}</span><small>${r.sev==='green'?'Safe':'Caution'}</small></div>
+      </div>
+      <div class="rc-stats">
+        <span class="stat-pill">${ICONS.walk}${r.dist}</span>
+        <span class="stat-pill">${ICONS.clock}${r.dur}</span>
+        <span class="stat-pill" style="color:var(--caution)">${ICONS.bulb}${r.light}</span>
+        <span class="stat-pill" style="color:var(--primary)">${ICONS.people}${r.crowd}</span>
+      </div>
+      <div class="rc-tags">
+        ${r.tags.map(t=>`<span class="tag green">${ICONS.check}${t}</span>`).join('')}
+      </div>
+      ${r.warns.map(w=>`<div class="warn-row">${ICONS.warn}${w}</div>`).join('')}
+    </div>`).join('');
+
+  const selR = ROUTES[state.selectedRoute];
+
+  return `<div class="screen" style="background:var(--bg)">
+    <div class="app-bar">Plan Route</div>
+    <div class="screen-scroll">
+      <div style="padding:14px;display:flex;flex-direction:column;gap:4px;">
+        <div class="loc-field">${ICONS.loc} Market Street &amp; 4th</div>
+        <div style="display:flex;justify-content:center;margin:2px 0">
+          <div style="width:30px;height:30px;border-radius:50%;background:var(--surface);border:1px solid var(--outline-variant);display:flex;align-items:center;justify-content:center;cursor:pointer">${ICONS.route}</div>
+        </div>
+        <div class="loc-field"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:var(--danger)"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+          <input placeholder="Where are you going?" id="dest-input" autocomplete="off"/>
+        </div>
+      </div>
+      <div style="margin:0 14px 12px">
+        <div class="route-type-tabs">${tabs}</div>
+      </div>
+      <div style="padding:0 14px;display:flex;flex-direction:column;gap:10px;padding-bottom:80px">${cards}</div>
+    </div>
+    <div class="start-walk-bar">
+      <div class="swb-info"><div class="name">${selR.label}</div><div class="sub">${selR.dist} · ${selR.dur}</div></div>
+      <button class="start-btn" id="btn-start-walk">${ICONS.walk} Start Walk</button>
+    </div>
+    ${bottomNav('routes')}
+  </div>`;
+}
+
+// ─── SAFE WALK ────────────────────────────────────────
+function renderSafeWalk(){
+  const r = ROUTES[state.selectedRoute];
+  const prog = state.walkProgress;
+  const elapsed = state.walkSeconds;
+  const mm = String(Math.floor(elapsed/60)).padStart(2,'0');
+  const ss = String(elapsed%60).padStart(2,'0');
+  const remaining = Math.max(0, Math.round(r.dur.replace(' min','')*60*(1-prog/100)/60));
+
+  return `<div class="screen" style="background:var(--bg)">
+    <div class="sw-topbar">
+      <div class="pulse-dot"></div>
+      <span class="sw-label">Safe Walk Active</span>
+      <div class="timer">${mm}:${ss}</div>
+      <button class="stop-btn" id="btn-stop-walk">${ICONS.stop}</button>
+    </div>
+
+    ${prog>20?`<div class="alert-banner caution" style="margin:0 12px 6px">
+      <div class="ab-icon">${ICONS.eye}</div>
+      <span class="ab-text">Suspicious activity reported 100m left</span>
+      <span class="ab-action">Reroute</span>
+      <button class="ab-close" id="btn-dismiss-sw-alert">✕</button>
+    </div>`:''}
+
+    <div class="sw-map">
+      <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 375 160" preserveAspectRatio="xMidYMid slice">
+        <rect width="375" height="160" fill="#dde8e5"/>
+        <line x1="0" y1="80" x2="375" y2="80" stroke="white" stroke-width="9"/>
+        <line x1="190" y1="0" x2="190" y2="160" stroke="white" stroke-width="6" opacity=".6"/>
+        <polyline points="30,140 90,110 160,80 230,55 320,30" stroke="var(--primary)" stroke-width="5" fill="none" stroke-dasharray="10 5" stroke-linecap="round"/>
+        <circle cx="${30+prog*2.9}" cy="${140-prog*1.1}" r="9" fill="var(--primary)" stroke="white" stroke-width="3"/>
+        <circle cx="${30+prog*2.9}" cy="${140-prog*1.1}" r="16" fill="rgba(0,137,123,.2)"/>
+        <circle cx="320" cy="30" r="8" fill="var(--safe)" stroke="white" stroke-width="2"/>
+      </svg>
+    </div>
+
+    <div class="sw-bottom">
+      <div class="drag-handle"></div>
+      <div class="prog-row"><span class="prog-label">Progress</span><span class="prog-pct">${prog}%</span></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${prog}%"></div></div>
+      <div class="walk-stats">
+        <div class="walk-stat ws-primary">${ICONS.clock}<span class="wv">${remaining} min</span><span class="wl">Remaining</span></div>
+        <div class="walk-stat ws-secondary">${ICONS.walk}<span class="wv">${r.dist}</span><span class="wl">Total</span></div>
+        <div class="walk-stat ws-green">${ICONS.shield}<span class="wv">${r.score}</span><span class="wl">Safety</span></div>
+      </div>
+      <div class="dest-row">
+        ${ICONS.nav}
+        <div class="dest-info"><p>Heading to</p><h3>${r.via}</h3></div>
+        <div class="safe-badge" style="font-size:10px;padding:4px 10px">${r.sev==='green'?'Safe':'Caution'}</div>
+      </div>
+    </div>
+
+    <button class="sos-fab" id="btn-sos" style="bottom:195px">${ICONS.sos}</button>
+    ${state.sosActive ? renderSOSModal() : ''}
+  </div>`;
+}
+
+// ─── COMMUNITY ────────────────────────────────────────
+function renderCommunity(){
+  const filtered = state.communityFilter
+    ? ALERTS.filter(a=>a.cat===state.communityFilter)
+    : ALERTS;
+
+  const filters = CAT_FILTERS.map(f=>`
+    <div class="fchip${state.communityFilter===f.id?' active':''}" data-filter="${f.id}">
+      ${ICONS[f.icon]||''}${f.label}
+    </div>`).join('');
+
+  const cards = filtered.map((a,i)=>`
+    <div class="alert-card fade-in" style="animation-delay:${i*40}ms" data-alert="${a.id}">
+      <div class="ac-head">
+        <div class="ac-icon ${a.sev}">${ICONS[{harassment:'report',lighting:'bulb',suspicious:'eye',street:'warn',police:'police',accident:'carcrash',other:'more'}[a.cat]||'report']}</div>
+        <div class="ac-meta">
+          <h3>${a.title}</h3>
+          <div class="ac-loc">${ICONS.loc}${a.loc} · ${a.time}</div>
+        </div>
+        <div class="sev-badge ${a.sev}">${a.sev.charAt(0).toUpperCase()+a.sev.slice(1)}</div>
+      </div>
+      <div class="ac-desc">${a.desc}</div>
+      <div class="ac-foot">
+        <span class="cat-chip">${a.cat.charAt(0).toUpperCase()+a.cat.slice(1)}</span>
+        ${a.verified?`<div class="verified">${ICONS.verified}Verified</div>`:''}
+        <button class="upvote-btn ${state.votes[a.id]?'voted':''}" data-vote="${a.id}">
+          ${ICONS.thumb}${(a.votes+(state.votes[a.id]?1:0))}
+        </button>
+        <div class="av-sm">${a.av}</div>
+      </div>
+    </div>`).join('');
+
+  const total = filtered.length;
+  const verified = filtered.filter(a=>a.verified).length;
+
+  return `<div class="screen" style="background:var(--bg)">
+    <div class="comm-header">
+      <h1>Community</h1>
+      <button class="report-btn" id="btn-report">${ICONS.add}Report</button>
+    </div>
+    <div class="screen-scroll">
+      <div class="stats-banner">
+        <div class="stats-item"><span class="sv" style="color:var(--alert)">${total}</span><span class="sl">Nearby Alerts</span></div>
+        <div class="stats-div"></div>
+        <div class="stats-item"><span class="sv" style="color:var(--primary)">247</span><span class="sl">Active Users</span></div>
+        <div class="stats-div"></div>
+        <div class="stats-item"><span class="sv" style="color:var(--safe)">${verified}</span><span class="sl">Verified</span></div>
+      </div>
+      <div class="filter-scroll">${filters}</div>
+      <div style="padding:0 14px;display:flex;flex-direction:column;gap:10px;padding-bottom:80px">
+        ${cards.length ? cards : `<div style="text-align:center;padding:40px;color:var(--on-surface-dim)">No alerts for this filter</div>`}
+      </div>
+    </div>
+    ${bottomNav('community')}
+  </div>`;
+}
+
+// ─── REPORT ───────────────────────────────────────────
+function renderReport(){
+  const cats = [
+    {id:'harassment',icon:'report',  label:'Harassment'},
+    {id:'suspicious',icon:'eye',     label:'Suspicious'},
+    {id:'lighting',  icon:'bulb',    label:'Lighting'},
+    {id:'street',    icon:'warn',    label:'Unsafe Street'},
+    {id:'crowd',     icon:'people',  label:'Crowded'},
+    {id:'accident',  icon:'carcrash',label:'Accident'},
+    {id:'police',    icon:'police',  label:'Police'},
+    {id:'other',     icon:'more',    label:'Other'},
+  ];
+  const sevs = ['Low','Medium','High','Critical'];
+
+  return `<div class="screen" style="background:var(--bg)">
+    <div class="app-bar">
+      <button class="back-btn" id="btn-back-report">${ICONS.back}</button>
+      Report Incident
+    </div>
+    <div class="screen-scroll">
+      <div style="padding:18px;display:flex;flex-direction:column;gap:20px;padding-bottom:100px">
+
+        <!-- Location -->
+        <div>
+          <div class="section-lbl">${ICONS.loc}Location</div>
+          <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--primary-container);display:flex;align-items:center;justify-content:center">${ICONS.loc}</div>
+            <div><div style="font-size:11px;color:var(--on-surface-dim)">Current location</div><div style="font-size:13px;font-weight:600">Market Street &amp; 4th, SF</div></div>
+          </div>
+        </div>
+
+        <!-- Category -->
+        <div>
+          <div class="section-lbl">${ICONS.report}What happened?</div>
+          <div class="cat-grid">
+            ${cats.map(c=>`<div class="cat-tile${state.reportCat===c.id?' active':''}" data-cat="${c.id}">${ICONS[c.icon]}<span>${c.label}</span></div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Severity -->
+        <div>
+          <div class="section-lbl">${ICONS.warn}How severe?</div>
+          <div class="sev-row">
+            ${sevs.map((s,i)=>`<div class="sev-tile${state.reportSev===i?' active':''}" data-sev="${i}"><div class="dot"></div>${s}</div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div>
+          <div class="section-lbl">${ICONS.info}Describe what you saw</div>
+          <textarea class="desc-field" id="report-desc" rows="3" maxlength="280" placeholder="Optional: Add details to help others...">${state.reportDesc}</textarea>
+        </div>
+
+        <!-- Anon note -->
+        <div class="anon-note">${ICONS.privacy}Your report is anonymous. Only your general location is shared.</div>
+
+        <!-- Submit -->
+        <button class="btn btn-filled${!state.reportCat?' disabled':''}" id="btn-submit-report"
+          ${!state.reportCat?'disabled style="opacity:.45;cursor:default"':''}>
+          ${state.reportCat?'Submit Report':'Select a category to continue'}
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderReportDone(){
+  return `<div class="screen" style="background:var(--bg)">
+    <div class="success-screen">
+      <div class="success-icon">${ICONS.check}</div>
+      <h2 style="font-size:24px;font-weight:800;margin-bottom:12px;text-align:center">Report Submitted</h2>
+      <p style="font-size:15px;color:var(--on-surface-variant);text-align:center;line-height:1.6;margin-bottom:40px">
+        Thank you for helping keep the community safe. Your anonymous report has been shared with nearby users.
+      </p>
+      <button class="btn btn-filled" id="btn-back-community">${ICONS.back} Back to Community</button>
+    </div>
+  </div>`;
+}
+
+// ─── PROFILE ──────────────────────────────────────────
+function renderProfile(){
+  const t = state.toggles;
+  return `<div class="screen" style="background:var(--bg)">
+    <div class="screen-scroll">
+      <!-- Hero -->
+      <div class="profile-hero">
+        <div style="height:8px"></div>
+        <div class="ph-row">
+          <div class="ph-text"><p>YOUR PROFILE</p><h2>Sarah M.</h2></div>
+          <div class="ph-avatar">S</div>
+        </div>
+        <div class="ph-stats">
+          <div class="ph-stat"><span class="v">47</span><span class="l">Walks</span></div>
+          <div class="ph-div"></div>
+          <div class="ph-stat"><span class="v">112km</span><span class="l">Distance</span></div>
+          <div class="ph-div"></div>
+          <div class="ph-stat"><span class="v">3</span><span class="l">Reports</span></div>
+          <div class="ph-div"></div>
+          <div class="ph-stat"><span class="v">92</span><span class="l">Avg Score</span></div>
+        </div>
+      </div>
+
+      <div style="padding:14px;padding-bottom:80px">
+        <!-- Emergency contacts -->
+        <div class="sec-card">
+          <div class="sec-head">
+            ${ICONS.contact}<span>Emergency Contacts</span>
+            <button class="act" id="btn-add-contact">Add</button>
+          </div>
+          <div class="contact-tile">
+            <div class="c-av">M<div class="c-star">${ICONS.star}</div></div>
+            <div class="c-info"><div class="name">Mom</div><div class="sub">Family · +1 (555) 234-5678</div></div>
+          </div>
+          <div class="contact-tile">
+            <div class="c-av">A</div>
+            <div class="c-info"><div class="name">Alex Chen</div><div class="sub">Friend · +1 (555) 876-5432</div></div>
+          </div>
+        </div>
+
+        <!-- Safety prefs -->
+        <div class="sec-card">
+          <div class="sec-head">${ICONS.tune}<span>Safety Preferences</span></div>
+          ${toggleTile('share',   ICONS.share,  'Share my location',    'Share live location with contacts', t.share,   'primary')}
+          ${toggleTile('autoSOS', ICONS.sos,    'Auto SOS after 1 min', 'Trigger SOS if walk stops',        t.autoSOS, 'danger')}
+          ${toggleTile('vibration',ICONS.vibrate,'Vibration alerts',    'Haptic feedback for warnings',     t.vibration,'primary')}
+          ${toggleTile('night',   ICONS.night,  'Enhanced night alerts','More sensitive 9PM–6AM',           t.night,   'primary')}
+          ${toggleTile('community',ICONS.people,'Community alerts',     'Receive nearby notifications',     t.community,'primary')}
+        </div>
+
+        <!-- Privacy -->
+        <div class="sec-card">
+          <div class="sec-head">${ICONS.policy}<span>Privacy &amp; Data</span></div>
+          ${listTile(ICONS.history,'Walk history','12 walks in the last 30 days')}
+          ${listTile(ICONS.delete,'Clear location data','Remove all stored location history', 'var(--danger)')}
+          ${listTile(ICONS.policy,'Privacy policy','How we use your data')}
+        </div>
+
+        <!-- Notifications -->
+        <div class="sec-card">
+          <div class="sec-head">${ICONS.notif}<span>Notifications</span></div>
+          ${listTile(ICONS.notif,'Push notifications','Currently enabled')}
+          ${listTile(ICONS.clock,'Quiet hours','11:00 PM – 7:00 AM')}
+        </div>
+
+        <!-- About -->
+        <div class="sec-card">
+          <div class="sec-head">${ICONS.info}<span>About</span></div>
+          ${listTile(ICONS.star,'Rate Presence','Help us improve the app')}
+          ${listTile(ICONS.help,'Help &amp; Support','FAQs and contact')}
+          ${listTile(ICONS.info,'App version','Presence 1.0.0 (build 1)', null, false)}
+        </div>
+      </div>
+    </div>
+    ${bottomNav('profile')}
+  </div>`;
+}
+
+function toggleTile(key, ico, title, sub, val, col){
+  return `<div class="toggle-tile" data-toggle="${key}">
+    <span style="color:${val?`var(--${col})`:'var(--on-surface-dim)'};flex-shrink:0;width:18px;height:18px">${ico}</span>
+    <div class="ti-info"><div class="t">${title}</div><div class="s">${sub}</div></div>
+    <div class="toggle ${val?'on':'off'}"><div class="toggle-thumb"></div></div>
+  </div>`;
+}
+
+function listTile(ico, title, sub, col=null, hasChev=true){
+  return `<div class="list-tile">
+    <span style="color:${col||'var(--on-surface-variant)'};flex-shrink:0">${ico}</span>
+    <div class="lt-info"><div class="t" style="${col?`color:${col}`:''}">${title}</div><div class="s">${sub}</div></div>
+    ${hasChev?`<div class="lt-chev">${ICONS.chevron}</div>`:''}
+  </div>`;
+}
+
+// ─── BOTTOM NAV ───────────────────────────────────────
+function bottomNav(active){
+  const items = [
+    {id:'home',      icon:'map',    label:'Home'},
+    {id:'routes',    icon:'route',  label:'Routes'},
+    {id:'community', icon:'people', label:'Community'},
+    {id:'profile',   icon:'person', label:'Profile'},
+  ];
+  return `<div class="bottom-nav">
+    ${items.map(it=>`<div class="nav-item ${active===it.id?'active':''}" data-nav="${it.id}">
+      <div class="nav-pill">${ICONS[it.icon]}</div>
+      <span>${it.label}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+// ─── SOS MODAL ────────────────────────────────────────
+function renderSOSModal(){
+  return `<div class="sos-modal" id="sos-modal">
+    <div class="sos-card">
+      <div class="sos-icon-pulse">${ICONS.sos}</div>
+      <h2>SOS ACTIVATED</h2>
+      <p>Alerting emergency contacts…</p>
+      <p>Sharing live location</p>
+      <button class="sos-cancel" id="btn-cancel-sos">Cancel SOS</button>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════════════
+function go(screen){ state.screen = screen; render(); }
+function toast(msg){
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  shell.appendChild(t);
+  setTimeout(()=>t.remove(), 2600);
+}
+
+function attachEvents(){
+  const on = (id,ev,fn)=>{ const el=document.getElementById(id); if(el) el.addEventListener(ev,fn); };
+  const all = (sel,ev,fn)=>{ document.querySelectorAll(sel).forEach(el=>el.addEventListener(ev,fn)); };
+
+  // ── Onboarding ──
+  on('btn-ob-next','click',()=>{ state.obPage = Math.min(state.obPage+1, OB_PAGES.length-1); render(); });
+  on('btn-skip','click',()=>{ go('home'); });
+  on('btn-perm','click',()=>{ toast('Location access granted'); state.obPage++; render(); });
+  on('btn-skip-perm','click',()=>{ state.obPage++; render(); });
+  on('btn-contact','click',()=>{ toast('Contact added: Mom'); go('home'); });
+  on('btn-finish','click',()=>{ go('home'); });
+
+  // ── Nav ──
+  all('[data-nav]','click',e=>{ go(e.currentTarget.dataset.nav); });
+
+  // ── Home ──
+  on('btn-plan-route','click',()=>{ go('routes'); });
+  on('btn-reroute','click',()=>{ go('routes'); });
+  on('btn-dismiss-alert','click',()=>{ state.alertDismissed=true; render(); });
+  on('btn-share-loc','click',()=>{ state.locationSharing=!state.locationSharing; toast(state.locationSharing?'Location sharing on':'Location sharing off'); render(); });
+  on('btn-share-loc2','click',()=>{ state.locationSharing=!state.locationSharing; toast(state.locationSharing?'Location sharing on':'Location sharing off'); render(); });
+  on('btn-layers','click',()=>{ toast('Layers panel — use chips below to toggle'); });
+  all('[data-layer]','click',e=>{
+    const k=e.currentTarget.dataset.layer;
+    state.layers[k]=!state.layers[k];
+    render();
+  });
+
+  // ── SOS ──
+  all('#btn-sos','click',()=>{ state.sosActive=true; render(); });
+  on('btn-cancel-sos','click',()=>{ state.sosActive=false; toast('SOS cancelled'); render(); });
+
+  // ── Routes ──
+  all('[data-route]','click',e=>{ state.selectedRoute=+e.currentTarget.dataset.route; render(); });
+  all('[data-tab]','click',e=>{ state.routeTab=+e.currentTarget.dataset.tab; render(); });
+  on('btn-start-walk','click',()=>{ startWalk(); });
+
+  // ── Safe Walk ──
+  on('btn-stop-walk','click',()=>{
+    if(confirm('End your safe walk?')){ stopWalk(); go('home'); }
+  });
+  on('btn-dismiss-sw-alert','click',()=>render());
+
+  // ── Community ──
+  on('btn-report','click',()=>{ state.reportCat=null; state.reportDesc=''; go('report'); });
+  all('[data-filter]','click',e=>{
+    const v = e.currentTarget.dataset.filter;
+    state.communityFilter = (v==='null'||v===state.communityFilter) ? null : v;
+    render();
+  });
+  all('[data-vote]','click',e=>{
+    const id=+e.currentTarget.dataset.vote;
+    state.votes[id]=!state.votes[id];
+    render();
+  });
+
+  // ── Report ──
+  on('btn-back-report','click',()=>go('community'));
+  all('[data-cat]','click',e=>{ state.reportCat=e.currentTarget.dataset.cat; render(); });
+  all('[data-sev]','click',e=>{ state.reportSev=+e.currentTarget.dataset.sev; render(); });
+  on('report-desc','input',e=>{ state.reportDesc=e.target.value; });
+  on('btn-submit-report','click',()=>{
+    if(!state.reportCat) return;
+    go('report-done');
+    // Add to feed
+    ALERTS.unshift({id:Date.now(),cat:state.reportCat,sev:['low','medium','high','critical'][state.reportSev],
+      title:`${state.reportCat} reported nearby`,loc:'Current location',time:'Just now',
+      desc:state.reportDesc||'Reported by community member.',votes:1,verified:false,av:'Y'});
+  });
+  on('btn-back-community','click',()=>go('community'));
+
+  // ── Profile ──
+  all('[data-toggle]','click',e=>{
+    const k=e.currentTarget.dataset.toggle;
+    state.toggles[k]=!state.toggles[k];
+    render();
+  });
+  on('btn-add-contact','click',()=>toast('Add contact — in full app'));
+}
+
+// ═══════════════════════════════════════════════════════
+// SAFE WALK TIMER
+// ═══════════════════════════════════════════════════════
+function startWalk(){
+  state.walkProgress = 0;
+  state.walkSeconds  = 0;
+  go('safe-walk');
+  stopWalk(); // clear any existing
+  state.walkTimer = setInterval(()=>{
+    state.walkSeconds++;
+    state.walkProgress = Math.min(100, Math.round(state.walkSeconds / 0.9));
+    if(state.walkProgress >= 100){ stopWalk(); showArrival(); return; }
+    if(state.screen==='safe-walk') render();
+  }, 300); // fast-forward: 1 real sec ≈ 3.3% progress
+}
+
+function stopWalk(){
+  if(state.walkTimer){ clearInterval(state.walkTimer); state.walkTimer=null; }
+}
+
+function showArrival(){
+  state.screen='home';
+  render();
+  setTimeout(()=>{
+    const m=document.createElement('div');
+    m.className='sos-modal'; m.style.zIndex='400';
+    m.innerHTML=`<div class="sos-card" style="background:var(--safe)">
+      <div class="sos-icon-pulse" style="border-color:#fff;background:rgba(255,255,255,.15)">${ICONS.check}</div>
+      <h2>You Arrived!</h2>
+      <p>You safely reached your destination.</p>
+      <p>Emergency contacts notified.</p>
+      <button class="sos-cancel" onclick="this.closest('.sos-modal').remove()">Done</button>
+    </div>`;
+    shell.appendChild(m);
+  },100);
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+render();
+// Tick clock every 30s
+setInterval(()=>{ if(state.screen!=='safe-walk') render(); }, 30000);
+</script>
+</body>
+</html>
